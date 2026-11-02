@@ -364,19 +364,44 @@ footer a:hover { color: var(--cream); }
     }
   }
 
-  // Signup (preview only: will be connected to Kit for real signups)
+  // Signup: sends the email to Kit (form 10131070)
+  var KIT_URL = "https://app.kit.com/forms/10131070/subscriptions";
+  function showError(form, fine, msg) {
+    fine.textContent = msg;
+    fine.style.color = "var(--red)";
+    form.classList.remove("shake"); void form.offsetWidth; form.classList.add("shake");
+  }
   document.querySelectorAll("form.signup").forEach(function (form) {
     form.addEventListener("submit", function (e) {
       e.preventDefault();
       var input = form.querySelector("input");
+      var button = form.querySelector("button");
       var fine = form.nextElementSibling;
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.value.trim())) {
-        fine.textContent = "That email doesn't look right. Check it and try again.";
-        fine.style.color = "var(--red)";
-        form.classList.remove("shake"); void form.offsetWidth; form.classList.add("shake");
+      var email = input.value.trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        showError(form, fine, "That email doesn't look right. Check it and try again.");
         input.focus();
         return;
       }
+      var label = button.innerHTML;
+      button.disabled = true;
+      button.textContent = "Joining…";
+      var data = new FormData();
+      data.append("email_address", email);
+      fetch(KIT_URL, { method: "POST", body: data, headers: { Accept: "application/json" } })
+        .then(function (res) { return res.json().catch(function () { return {}; }).then(function (body) { return { ok: res.ok, body: body }; }); })
+        .then(function (r) {
+          if (r.ok && r.body.status !== "failed") { success(form, fine); return; }
+          button.disabled = false; button.innerHTML = label;
+          showError(form, fine, "Couldn't sign you up. Check your email address and try again.");
+        })
+        .catch(function () {
+          button.disabled = false; button.innerHTML = label;
+          showError(form, fine, "No connection. Check your internet and try again.");
+        });
+    });
+  });
+  function success(form, fine) {
       var btn = form.querySelector("button").getBoundingClientRect();
       burst(btn.left + btn.width / 2, btn.top + btn.height / 2);
       var env = document.getElementById("envelope");
@@ -384,11 +409,10 @@ footer a:hover { color: var(--cream); }
       var done = document.createElement("div");
       done.className = "done";
       done.setAttribute("role", "status");
-      done.innerHTML = "<span>✓</span> You're in. Your first letter arrives this Sunday.";
+      done.innerHTML = "<span>✓</span> Almost there. Check your inbox and confirm your email.";
       form.replaceWith(done);
       fine.hidden = true;
-    });
-  });
+  }
 })();
 </script>
 </html>
